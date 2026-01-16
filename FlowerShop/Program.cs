@@ -11,7 +11,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:4200",  // Lokale Entwicklung
-                "https://5ahif-group2-ui-dhdycgg4hdgecjda.westeurope-01.azurewebsites.net" // Azure Production
+                "https://5ahif-group2-ui-cnhnebcscraphvbn.westeurope-01.azurewebsites.net" // Azure Production
               )
               .AllowAnyHeader()
               .AllowAnyMethod();
