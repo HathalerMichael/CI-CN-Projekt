@@ -8,9 +8,11 @@ on:
   workflow_dispatch: # Erlaubt manuelles Starten zum Testen
 
 env:
-  IMAGE_NAME: group2backend
+  BACKEND_IMAGE_NAME: group2backend
+  FRONTEND_IMAGE_NAME: group2frontend
   REGISTRY_NAME: 5ahif.azurecr.io
-  AZURE_WEBAPP_NAME: 5ahif-group2-api # Dein App-Name aus Azure
+  AZURE_WEBAPP_BACKEND: 5ahif-group2-api
+  AZURE_WEBAPP_FRONTEND: 5ahif-group2-ui # Dein Frontend App-Name aus Azure
 
 jobs:
   build-and-deploy:
@@ -31,21 +33,43 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      # 3. Dependencies laden
-      - name: Restore dependencies
+      # 2b. Node.js Setup für Frontend
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3. Dependencies laden (Backend)
+      - name: Restore .NET dependencies
         working-directory: ./FlowerShop
         run: dotnet restore
 
-      # 4. Bauen 
-      - name: Build
+      # 3b. Dependencies laden (Frontend)
+      - name: Install npm dependencies
+        working-directory: ./flowershop-ui
+        run: npm ci
+
+      # 4. Bauen (Backend)
+      - name: Build Backend
         working-directory: ./FlowerShop
         run: dotnet build --no-restore --configuration Release
 
-      # 5. Unit Tests ausführen (Optional: Falls du Tests hast)
-      - name: Run Unit Tests
+      # 4b. Bauen (Frontend)
+      - name: Build Frontend
+        working-directory: ./flowershop-ui
+        run: npm run build
+
+      # 5. Unit Tests ausführen (Backend)
+      - name: Run Backend Tests
         if: false # Auf 'true' setzen, wenn Tests vorhanden sind
         working-directory: ./FlowerShop
         run: dotnet test --no-build --configuration Release --verbosity normal
+
+      # 5b. Unit Tests (Frontend)
+      - name: Run Frontend Tests
+        if: false # Auf 'true' setzen, wenn Tests vorhanden sind
+        working-directory: ./flowershop-ui
+        run: npm test -- --watch=false --browsers=ChromeHeadless
 
       # DEBUG: Secrets prüfen (nur zur Fehlersuche - danach löschen!)
       - name: Check Secrets
@@ -66,18 +90,34 @@ jobs:
       - name: Login to ACR
         run: az acr login --name 5ahif
 
-      # 8. Docker Image bauen und pushen
-      - name: Build and push Docker image
+      # 8a. Docker Image bauen und pushen (Backend)
+      - name: Build and push Backend Docker image
         working-directory: ./FlowerShop
         run: |
-          docker build . -t ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker build . -t ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker push ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest
+          docker build . -t ${{ env.REGISTRY_NAME }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+          docker build . -t ${{ env.REGISTRY_NAME }}/${{ env.BACKEND_IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.BACKEND_IMAGE_NAME }}:latest
 
-      # 9. Der Web App sagen, dass sie das neue Image laden soll
-      - name: Deploy to Azure Web App
+      # 8b. Docker Image bauen und pushen (Frontend)
+      - name: Build and push Frontend Docker image
+        working-directory: ./flowershop-ui
+        run: |
+          docker build . -t ${{ env.REGISTRY_NAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+          docker build . -t ${{ env.REGISTRY_NAME }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+
+      # 9a. Deploy Backend
+      - name: Deploy Backend to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          images: '${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          app-name: ${{ env.AZURE_WEBAPP_BACKEND }}
+          images: '${{ env.REGISTRY_NAME }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}'
+
+      # 9b. Deploy Frontend
+      - name: Deploy Frontend to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_FRONTEND }}
+          images: '${{ env.REGISTRY_NAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}'
