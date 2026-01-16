@@ -36,6 +36,6 @@ public class PingEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         var content = await response.Content.ReadAsStringAsync();
 
         // Assert
-        Assert.Equal("pong", content);
+        Assert.Equal("ohio from FlowerShop backend!", content);
     }
 }
