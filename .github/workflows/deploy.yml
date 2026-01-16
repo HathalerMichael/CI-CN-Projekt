@@ -47,6 +47,12 @@ jobs:
         working-directory: ./FlowerShop
         run: dotnet test --no-build --configuration Release --verbosity normal
 
+      # DEBUG: Secrets prüfen (nur zur Fehlersuche - danach löschen!)
+      - name: Check Secrets
+        run: |
+          echo "CLIENT_ID exists: ${{ secrets.AZURE_CLIENT_ID != '' }}"
+          echo "TENANT_ID exists: ${{ secrets.AZURE_TENANT_ID != '' }}"
+          echo "SUBSCRIPTION_ID exists: ${{ secrets.AZURE_SUBSCRIPTION_ID != '' }}"
 
       # 6. Login bei Azure (nutzt deine neuen Secrets)
       - name: Azure Login
