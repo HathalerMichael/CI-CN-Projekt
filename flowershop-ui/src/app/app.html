@@ -1,0 +1,38 @@
+<div class="screen">
+
+  <!-- Kreisende Ausrufezeichen -->
+  <div class="orbit">
+    <div class="exclamation" *ngFor="let i of [].constructor(12)">❗</div>
+  </div>
+
+  <!-- Button -->
+  <button class="ping-btn" (click)="pingBackend()">
+    Ping Backend
+  </button>
+
+  <!-- Chaotischer Text -->
+  <div *ngFor="let c of chaosTexts"
+       class="chaos"
+       [style.left.%]="c.x"
+       [style.top.%]="c.y"
+       [style.transform]="'rotate(' + c.angle + 'deg)'">
+    {{ backendText }}
+  </div>
+
+  <div *ngFor="let e of explosions"
+      class="explosion"
+      [style.left.%]="e.x"
+      [style.top.%]="e.y"
+      [style.animationDelay.s]="e.delay">
+    <span class="flash"></span>
+    <span class="ring"></span>
+  </div>
+
+  <img *ngIf="hasPinged"
+      src="/img/fight.png"
+      class="fight-img">
+
+  <img *ngIf="hasPinged"
+    src="/img/monkey.png"
+    class="monkey-img">
+</div>
