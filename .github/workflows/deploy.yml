@@ -1,0 +1,77 @@
+name: Deploy to Azure (Main)
+
+# Nur starten, wenn auf 'main' gepusht wird
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Erlaubt manuelles Starten zum Testen
+
+env:
+  IMAGE_NAME: group2backend
+  REGISTRY_NAME: 5ahif.azurecr.io
+  AZURE_WEBAPP_NAME: 5ahif-group2-api # Dein App-Name aus Azure
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # für den OIDC Login 
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      # 1. Code auschecken
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. .NET Setup 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      # 3. Dependencies laden
+      - name: Restore dependencies
+        working-directory: ./FlowerShop
+        run: dotnet restore
+
+      # 4. Bauen 
+      - name: Build
+        working-directory: ./FlowerShop
+        run: dotnet build --no-restore --configuration Release
+
+      # 5. Unit Tests ausführen (Optional: Falls du Tests hast)
+      - name: Run Unit Tests
+        if: false # Auf 'true' setzen, wenn Tests vorhanden sind
+        working-directory: ./FlowerShop
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+
+      # 6. Login bei Azure (nutzt deine neuen Secrets)
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # 7. Login bei der Container Registry (via Azure Token)
+      - name: Login to ACR
+        run: az acr login --name 5ahif
+
+      # 8. Docker Image bauen und pushen
+      - name: Build and push Docker image
+        working-directory: ./FlowerShop
+        run: |
+          docker build . -t ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker build . -t ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest
+
+      # 9. Der Web App sagen, dass sie das neue Image laden soll
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          images: '${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
